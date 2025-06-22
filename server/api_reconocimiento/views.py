@@ -8,8 +8,9 @@ import os
 import io # Import the io module
 
 # Definir la ruta del modelo (.h5) y del archivo de nombres de clases (.json)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'modelo', 'modelo_productos.h5')
-CLASSES_PATH = os.path.join(os.path.dirname(__file__), '..', 'modelo', 'class_names.json')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, '..', 'modelo', 'modelo_productos.h5')
+CLASSES_PATH = os.path.join(BASE_DIR, '..', 'modelo', 'class_names.json')
 
 # Cargar el modelo y las clases una sola vez al inicio de la aplicación para evitar recargas innecesarias
 try:
