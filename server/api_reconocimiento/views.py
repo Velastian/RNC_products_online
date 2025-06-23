@@ -48,7 +48,7 @@ def reconocer_producto(request):
         img_bytes = io.BytesIO(img_file.read())
 
         # Cargar la imagen en memoria, redimensionada al tamaño esperado por el modelo
-        img = image.load_img(img_bytes, target_size=(128, 128))
+        img = image.load_img(img_bytes, target_size=(224, 224))
 
         # Convertir la imagen a un arreglo NumPy y normalizar los valores entre 0 y 1
         img_array = image.img_to_array(img) / 255.0

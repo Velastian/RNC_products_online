@@ -10,6 +10,7 @@ Este proyecto es una API REST creada con Django que sirve un modelo de reconocim
 - pip 23.0.0
 - TensorFlow >= 2.10
 - Django >= 4
+- matplotlib
 - pillow
 
 1- Iniciar entorno virtual e instalar las dependencias con:

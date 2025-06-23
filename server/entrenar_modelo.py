@@ -7,95 +7,163 @@ matplotlib.use('TkAgg')  # Configura el backend de matplotlib para entornos con 
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
-    Conv2D, MaxPooling2D, Flatten, Dense, Dropout, 
-    BatchNormalization, RandomFlip, RandomRotation, RandomZoom
+    Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 )
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Definimos la ruta base del usuario para almacenar el dataset
 HOME_DIR = os.path.expanduser("~")  # Ruta del directorio del usuario (ej: /home/usuario o C:\Users\usuario)
+DATASET_DIR = os.path.join(HOME_DIR, "datasets", "Stanford_Online_Products")  # Ruta completa del dataset
 
-# Parámetros del entrenamiento
-IMG_SIZE = (128, 128)        # Tamaño de imagen a utilizar
-BATCH_SIZE = 32              # Tamaño del lote
-EPOCHS = 1                   # Número de épocas de entrenamiento (cambiar para entrenamiento real)
-DATASET_DIR = os.path.join(HOME_DIR, "datasets", "Stanford_Online_Products")  # Ruta del dataset
+# Paso 1: Cargar los datos desde los archivos .txt que describen las imágenes
+def load_data(file_path):
+    data = []
+    with open(file_path, 'r') as f:
+        f.readline()  # Ignorar la primera línea (encabezado)
+        for line in f:
+            parts = line.strip().split()  # Separar los campos por espacios
+            image_id, class_id, super_class_id, path = parts
+            # Guardar los datos como diccionario
+            data.append({
+                'image_id': int(image_id),
+                'class_id': int(class_id),
+                'super_class_id': int(super_class_id),
+                'path': path
+            })
+    return data
 
-# Definimos una secuencia de aumentos de datos para mejorar la generalización
-data_augmentation = tf.keras.Sequential([
-    RandomFlip("horizontal"),      # Volteo horizontal aleatorio
-    RandomRotation(0.1),           # Rotación aleatoria
-    RandomZoom(0.1),               # Zoom aleatorio
-])
+# Construir rutas absolutas a los archivos de entrenamiento y prueba
+train_file_path = os.path.join(DATASET_DIR, "Ebay_train.txt")
+test_file_path = os.path.join(DATASET_DIR, "Ebay_test.txt")
 
-# Función para leer rutas de imágenes y etiquetas desde un archivo de texto
-def leer_rutas_y_etiquetas(txt_path):
-    rutas, etiquetas = [], []
-    with open(txt_path, 'r') as f:
-        next(f)  # Saltamos la línea de cabecera
-        for linea in f:
-            partes = linea.strip().split()
-            path_rel = partes[3].replace("/", os.sep)        # Ruta relativa del archivo de imagen
-            super_class_id = int(partes[2]) - 1              # Clase (ajustada para comenzar desde 0)
-            rutas.append(os.path.join(DATASET_DIR, path_rel))  # Ruta completa del archivo
-            etiquetas.append(super_class_id)                   # Etiqueta de clase
-    return rutas, etiquetas
+# Cargar los datos desde los archivos
+train_data = load_data(train_file_path)
+test_data = load_data(test_file_path)
 
-# Cargamos rutas y etiquetas para entrenamiento y prueba
-train_paths, train_labels = leer_rutas_y_etiquetas(os.path.join(DATASET_DIR, "Ebay_train.txt"))
-test_paths, test_labels = leer_rutas_y_etiquetas(os.path.join(DATASET_DIR, "Ebay_test.txt"))
+# Extraer rutas de imagen y etiquetas (superclases, ajustadas para que comiencen en 0)
+X_train = [entry['path'] for entry in train_data]
+y_train = [entry['super_class_id'] - 1 for entry in train_data]
 
-# Número total de clases distintas
-NUM_CLASSES = len(set(train_labels))
-print(f"✅ Dataset leído. Total clases: {NUM_CLASSES}")
+X_test = [entry['path'] for entry in test_data]
+y_test = [entry['super_class_id'] - 1 for entry in test_data]
 
-# Función para cargar, procesar y aplicar aumentos a una imagen
-def cargar_y_preprocesar(path, label):
-    image = tf.io.read_file(path)                         # Leemos el archivo
-    image = tf.image.decode_jpeg(image, channels=3)       # Decodificamos la imagen JPEG
-    image = tf.image.resize(image, IMG_SIZE)              # Redimensionamos
-    image = tf.cast(image, tf.float32) / 255.0            # Normalizamos a [0, 1]
-    image = data_augmentation(image)                      # Aplicamos aumentos
-    return image, tf.one_hot(label, NUM_CLASSES)          # Etiqueta codificada en one-hot
+# Paso 2: Definir generadores de datos para preprocesamiento y aumento
 
-# Creamos dataset de entrenamiento: cargamos, mapeamos, barajamos y preprocesamos
-train_ds = tf.data.Dataset.from_tensor_slices((train_paths, train_labels))
-train_ds = train_ds.map(cargar_y_preprocesar, num_parallel_calls=tf.data.AUTOTUNE)
-train_ds = train_ds.shuffle(1000).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-
-# Creamos dataset de prueba: solo mapeamos y agrupamos en batches
-test_ds = tf.data.Dataset.from_tensor_slices((test_paths, test_labels))
-test_ds = test_ds.map(cargar_y_preprocesar, num_parallel_calls=tf.data.AUTOTUNE)
-test_ds = test_ds.batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-
-# Definimos el modelo CNN secuencial
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(*IMG_SIZE, 3)),  # Capa convolucional con 32 filtros
-    BatchNormalization(),                                               # Normalización para estabilizar el aprendizaje
-    MaxPooling2D(),                                                     # Reducción espacial
-    Conv2D(64, (3, 3), activation='relu'),                              # Segunda capa convolucional
-    BatchNormalization(),
-    MaxPooling2D(),
-    Flatten(),                                                          # Aplanamos para conectar con capas densas
-    Dense(256, activation='relu'),                                      # Capa densa intermedia
-    Dropout(0.6),                                                       # Dropout para evitar sobreajuste
-    Dense(NUM_CLASSES, activation='softmax')                            # Capa de salida con softmax para clasificación
-])
-
-# Compilamos el modelo con optimizador Adam y pérdida categórica
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-    loss='categorical_crossentropy',
-    metrics=['accuracy'],
+# Generador de datos para entrenamiento con aumentos y validación dividida
+train_datagen = ImageDataGenerator(
+    rescale=1./255,           # Escalar píxeles entre 0 y 1
+    shear_range=0.2,          # Aplicar transformación de corte (shear)
+    zoom_range=0.2,           # Aplicar zoom aleatorio
+    horizontal_flip=True,     # Volteo horizontal aleatorio
+    validation_split=0.2      # Reservar 20% de datos para validación
 )
 
-# Entrenamos el modelo con los datasets definidos
-print("🚀 Entrenando modelo...")
-history = model.fit(train_ds, epochs=EPOCHS, validation_data=test_ds)
+# Generador de datos para prueba (solo normalización)
+test_datagen = ImageDataGenerator(rescale=1./255)
 
-# Graficamos métricas de entrenamiento y validación
+# Definir tamaño de lote e imágenes
+batch_size = 32
+target_size = (224, 224)  # Tamaño estándar de entrada de imagen
+
+# Generador para entrenamiento
+train_generator = train_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],  # Lista de subdirectorios con nombres específicos de clases
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse',  # Etiquetas como enteros
+    subset='training'     # Solo parte de entrenamiento
+)
+
+# Generador para validación
+validation_generator = train_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse',
+    subset='validation'
+)
+
+# Generador para pruebas (sin subset porque no hay separación en prueba)
+test_generator = test_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse'
+)
+
+# Paso 3: Construcción del modelo CNN (Convolutional Neural Network)
+input_shape = (*target_size, 3)  # Agrega canal de color RGB
+num_classes = 12  # Cantidad de clases (una por supercategoría)
+
+# Definición del modelo secuencial
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),  # Capa convolucional 1
+    MaxPooling2D((2, 2)),  # Reducción de dimensiones
+    Conv2D(64, (3, 3), activation='relu'),  # Capa convolucional 2
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),  # Capa convolucional 3
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),  # Capa convolucional 4
+    MaxPooling2D((2, 2)),
+    Flatten(),  # Aplanamiento para entrada a capa densa
+    Dense(256, activation='relu'),  # Capa densa totalmente conectada
+    Dropout(0.5),  # Regularización para evitar overfitting
+    Dense(num_classes, activation='softmax')  # Capa de salida con softmax
+])
+
+# Compilación del modelo con optimizador, función de pérdida y métrica
+model.compile('adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Paso 4: Entrenamiento del modelo
+epochs = 1  # Número de épocas (puede ajustarse según recursos)
+
+history = model.fit(
+    train_generator,
+    steps_per_epoch=len(X_train) // batch_size,  # Cantidad de pasos por época
+    epochs=epochs,
+    validation_data=validation_generator,
+    validation_steps=len(X_train) * 0.2 // batch_size  # Aproximación a pasos de validación
+)
+
+# Paso 5: Evaluación del modelo en conjunto de prueba
+test_loss, test_accuracy = model.evaluate(test_generator, steps=len(X_test) // batch_size)
+print(f"Pérdida en el conjunto de prueba: {test_loss}")
+print(f"Precisión en el conjunto de prueba: {test_accuracy}")
+
+# Guardar el modelo entrenado en formato HDF5 (.h5)
+os.makedirs("modelo", exist_ok=True)
+model.save("modelo/modelo_productos.h5")
+
+# Lista de nombres de clase en orden (coincidente con `flow_from_directory`)
+class_names = [
+    "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+    "lamp", "mug", "sofa", "stapler", "table", "toaster"
+]
+
+# Guardar los nombres de clases como archivo JSON
+with open("modelo/class_names.json", "w") as f:
+    json.dump(class_names, f)
+
+print("✅ Modelo y clases guardados en carpeta /modelo/")
+
+# Visualización de métricas de entrenamiento y validación
 plt.figure(figsize=(12, 4))
 
-# Gráfica de pérdida
+# Gráfico de pérdida
 plt.subplot(1, 2, 1)
 plt.plot(history.history['loss'], label='Pérdida en entrenamiento')
 plt.plot(history.history['val_loss'], label='Pérdida en validación')
@@ -104,7 +172,7 @@ plt.xlabel('Época')
 plt.ylabel('Valor de pérdida')
 plt.legend()
 
-# Gráfica de precisión
+# Gráfico de precisión
 plt.subplot(1, 2, 2)
 plt.plot(history.history['accuracy'], label='Precisión en entrenamiento')
 plt.plot(history.history['val_accuracy'], label='Precisión en validación')
@@ -114,18 +182,3 @@ plt.ylabel('Valor de precisión')
 plt.legend()
 
 plt.show()
-
-# Guardamos el modelo entrenado en formato .h5
-os.makedirs("modelo", exist_ok=True)
-model.save("modelo/modelo_productos.h5")
-
-# Lista opcional de nombres de clase manual (no proviene directamente del dataset)
-class_names = [
-    "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
-    "lamp", "mug", "sofa", "stapler", "table", "toaster"
-]
-# Guardamos nombres de clase en formato JSON para futuras predicciones o visualizaciones
-with open("modelo/class_names.json", "w") as f:
-    json.dump(class_names, f)
-
-print("✅ Modelo y clases guardados en carpeta /modelo/")
