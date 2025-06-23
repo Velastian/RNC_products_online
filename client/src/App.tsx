@@ -1,8 +1,11 @@
-import { Inicio } from "./layout";
+import { Inicio } from "@/layout";
+import { ThemeProvider } from "@/context";
 
 function App() {
   return (
-    <Inicio />
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <Inicio />
+    </ThemeProvider>
   )
 };
 

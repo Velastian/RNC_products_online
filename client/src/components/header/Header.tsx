@@ -1,17 +1,23 @@
-import { Button } from "../ui/button";
+import { Sun, Moon, Brain } from "lucide-react";
+
+import { useTheme } from "@/hooks";
+import type { Theme } from "@/types";
 
 import { 
   DropdownMenu, DropdownMenuTrigger, 
   DropdownMenuContent, DropdownMenuItem 
 } from "../ui/dropdown-menu";
 
-import { Sun, Moon, Brain } from "lucide-react";
+import { Button } from "../ui/button";
+import { dropdownItem } from "./item";
 
 function Header() {
+  const { setTheme } = useTheme();
+
   return (
     <header className="flex items-center justify-between py-2.5 px-4 border-b">
       <HeaderTitle />
-      <HeaderDarkMode />
+      <HeaderDarkMode setTheme={setTheme} />
     </header>
   )
 };
@@ -28,9 +34,11 @@ function HeaderTitle() {
   )
 };
 
-function HeaderDarkMode() {
+interface HeaderDarkModeProps { setTheme: (theme: Theme) => void }
+
+function HeaderDarkMode({ setTheme }: HeaderDarkModeProps) {
   return (
-     <DropdownMenu>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon">
           <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
@@ -39,12 +47,11 @@ function HeaderDarkMode() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          Dark
-        </DropdownMenuItem>
+        {dropdownItem.map((item) => (
+          <DropdownMenuItem key={item.value} onClick={() => setTheme(item.value)}>
+            {item.title}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )
