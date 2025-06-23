@@ -129,7 +129,7 @@ model.compile('adam',
               metrics=['accuracy'])
 
 # Paso 4: Entrenamiento del modelo
-epochs = 1  # Número de épocas (puede ajustarse según recursos)
+epochs = 18  # Número de épocas (puede ajustarse según recursos)
 
 history = model.fit(
     train_generator,
