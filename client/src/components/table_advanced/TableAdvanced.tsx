@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Search, Settings, ChevronDown, Upload, Loader2Icon } from "lucide-react";
 
 import { 
@@ -33,194 +33,27 @@ import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from ".
 import { cn } from "@/lib/utils";
 import { type Prediction } from "@/types";
 import { columnNames, sizePages, getPaginationButton, getColumns, optionsImage  } from "./Item";
-
-const datosExample: Prediction[] = [
-  {
-    id: "PRED-001",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0,
-    cabinet: 0.12,
-    chair: 0.95,
-    coffeMaker: 0.78,
-    fan: 0.34,
-    kettle: 0.67,
-    lamp: 0.89,
-    mug: 0.45,
-    sofa: 0.92,
-    stapler: 0.23,
-    table: 0.88,
-    toaster: 0.56,
-  },
-  {
-    id: "PRED-002",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.23,
-    cabinet: 0.87,
-    chair: 0.45,
-    coffeMaker: 0.91,
-    fan: 0.78,
-    kettle: 0.34,
-    lamp: 0.67,
-    mug: 0.89,
-    sofa: 0.12,
-    stapler: 0.95,
-    table: 0.56,
-    toaster: 0.78,
-  },
-  {
-    id: "PRED-003",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.67,
-    cabinet: 0.45,
-    chair: 0.78,
-    coffeMaker: 0.23,
-    fan: 0.91,
-    kettle: 0.89,
-    lamp: 0.34,
-    mug: 0.67,
-    sofa: 0.85,
-    stapler: 0.12,
-    table: 0.95,
-    toaster: 0.45,
-  },
-  {
-    id: "PRED-004",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.91,
-    cabinet: 0.78,
-    chair: 0.23,
-    coffeMaker: 0.67,
-    fan: 0.45,
-    kettle: 0.95,
-    lamp: 0.12,
-    mug: 0.89,
-    sofa: 0.34,
-    stapler: 0.78,
-    table: 0.67,
-    toaster: 0.91,
-  },
-  {
-    id: "PRED-005",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.34,
-    cabinet: 0.91,
-    chair: 0.67,
-    coffeMaker: 0.45,
-    fan: 0.89,
-    kettle: 0.23,
-    lamp: 0.78,
-    mug: 0.95,
-    sofa: 0.67,
-    stapler: 0.34,
-    table: 0.12,
-    toaster: 0.85,
-  },
-  {
-    id: "PRED-006",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.78,
-    cabinet: 0.34,
-    chair: 0.91,
-    coffeMaker: 0.89,
-    fan: 0.12,
-    kettle: 0.78,
-    lamp: 0.95,
-    mug: 0.23,
-    sofa: 0.45,
-    stapler: 0.67,
-    table: 0.89,
-    toaster: 0.34,
-  },
-  {
-    id: "PRED-007",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.45,
-    cabinet: 0.67,
-    chair: 0.34,
-    coffeMaker: 0.95,
-    fan: 0.23,
-    kettle: 0.91,
-    lamp: 0.78,
-    mug: 0.12,
-    sofa: 0.89,
-    stapler: 0.45,
-    table: 0.34,
-    toaster: 0.67,
-  },
-  {
-    id: "PRED-008",
-    imagen: "/placeholder.svg?height=40&width=40",
-    bicycle: 0.89,
-    cabinet: 0.23,
-    chair: 0.78,
-    coffeMaker: 0.34,
-    fan: 0.67,
-    kettle: 0.45,
-    lamp: 0.91,
-    mug: 0.78,
-    sofa: 0.23,
-    stapler: 0.89,
-    table: 0.95,
-    toaster: 0.12,
-  },
-];
+import { useImageUpload, usePredictions } from "@/hooks";
 
 function TableAdvanced() {
-  const [data] = useState<Prediction[]>(datosExample);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [globalFilter, setGlobalFilter] = useState(""); 
 
-  const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSubmit = useCallback(async (): Promise<void> => {
-    if (!image) return;
-
-    const formData = new FormData();
-    formData.append("image", image);
-
-    setLoading(true);
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/prediccion", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      console.log(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [image]);
-
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-
-    setImage(file);
-    setImagePreview(file ? URL.createObjectURL(file) : null);
-  }, [imagePreview]);
-
-  const handleChangeImageClick = useCallback((): void => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-      fileInputRef.current.click();
-    };
+  const handleIsOpen = useCallback((value: boolean): void => {
+    setIsOpen(value);
   }, []);
 
-  const handleRemoveImageClick = useCallback((): void => {
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    setImage(null);
-    setImagePreview(null);
-  }, []);
+  const { 
+    image, imagePreview, fileInputRef, 
+    handleFileChange, handleChangeImageClick, handleRemoveImageClick 
+  } = useImageUpload();
+
+  const { data, loading, handleSubmit } = usePredictions({ 
+    image, imagePreview, handleIsOpen 
+  });
 
   const columns = useMemo(() => {
     return getColumns
@@ -254,6 +87,8 @@ function TableAdvanced() {
     <div className="w-full space-y-4">
       <TableAdvancedHeader
         loading={loading}
+        open={isOpen}
+        setOpen={handleIsOpen}
         imagePreview={imagePreview}
         fileInputRef={fileInputRef}
         handleSubmit={handleSubmit}
@@ -277,8 +112,10 @@ function TableAdvanced() {
 
 interface TableAdvancedHeaderProps {
   loading: boolean;
+  open: boolean;
   imagePreview: string | null;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  setOpen: (value: boolean) => void;
   handleSubmit: () => void;
   handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleChangeImageClick: () => void;
@@ -287,7 +124,7 @@ interface TableAdvancedHeaderProps {
 
 function TableAdvancedHeader(props: TableAdvancedHeaderProps) {
   const { 
-    loading, imagePreview, fileInputRef, 
+    loading, imagePreview, fileInputRef, open, setOpen,
     handleSubmit, handleFileChange, handleChangeImageClick, handleRemoveImageClick 
   } = props;
 
@@ -299,6 +136,8 @@ function TableAdvancedHeader(props: TableAdvancedHeaderProps) {
 
       <TableAdvancedModal
         loading={loading}
+        open={open}
+        setOpen={setOpen}
         imagePreview={imagePreview}
         fileInputRef={fileInputRef}
         handleSubmit={handleSubmit}
@@ -314,20 +153,20 @@ type TableAdvancedModalProps = TableAdvancedHeaderProps;
 
 function TableAdvancedModal(props: TableAdvancedModalProps) {
   const { 
-    loading, imagePreview, fileInputRef, handleSubmit,
+    loading, imagePreview, fileInputRef, open, handleSubmit, setOpen,
     handleFileChange, handleChangeImageClick, handleRemoveImageClick 
   } = props;
 
   const imageActions = optionsImage(handleChangeImageClick, handleRemoveImageClick);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="cursor-pointer">
+        <Button onClick={() => setOpen(true)} className="cursor-pointer">
           Agregar Predicción
         </Button>
       </DialogTrigger>
-      <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>IA Convolucional</DialogTitle>
           <DialogDescription>
@@ -403,7 +242,7 @@ function TableAdvancedModal(props: TableAdvancedModalProps) {
             <Button 
               className="cursor-pointer" 
               variant="outline" 
-              onClick={handleRemoveImageClick}
+              onClick={() => setOpen(false)}
               disabled={loading}
             >
               Cerrar
