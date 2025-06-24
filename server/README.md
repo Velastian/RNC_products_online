@@ -17,9 +17,9 @@ Este proyecto es una API REST creada con Django que sirve un modelo de reconocim
 ```bash
 python -m venv venv
 .\venv\Scripts\activate
-pip install tensorflow==2.10.0  #Si tienes GPU
-pip install "numpy<2" #Si tienes GPU
-python.exe -m pip install --upgrade pip #Si no tienes GPU
+pip install tensorflow==2.10.0
+pip install "numpy<2"
+pip install scipy #Si no tienes GPU
 pip install tensorflow #Si no tienes GPU
 
 pip install django djangorestframework django-cors-headers matplotlib pillow
