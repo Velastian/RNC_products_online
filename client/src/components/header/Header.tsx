@@ -25,7 +25,7 @@ function Header() {
 function HeaderTitle() {
   return (
     <div className="flex gap-4">
-      <Brain className="h-6 w-6 text-gray-800" />
+      <Brain className="h-6 w-6 text-gray-800 dark:text-white/70" />
 
       <h1 className="font-bold text-xl">
         IA - RNConvoulcional

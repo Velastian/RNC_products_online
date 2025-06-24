@@ -67,7 +67,7 @@ export const getColumns = [
   }),
   columnHelper.accessor("coffeMaker", {
     header: ({ column }) => headerToOrderTable("Cafetera", column),
-    cell: (info) => `${`${info.getValue()} %`} %`,
+    cell: (info) => `${`${info.getValue()}`} %`,
   }),
   columnHelper.accessor("fan", {
     header: ({ column }) => headerToOrderTable("Ventilador", column),
