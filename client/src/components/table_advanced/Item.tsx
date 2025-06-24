@@ -3,7 +3,9 @@ import { type Table, type Column, type ColumnDef, createColumnHelper } from "@ta
 
 import { 
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, 
-  ArrowUp, ArrowDown, ArrowUpDown 
+  ArrowUp, ArrowDown, ArrowUpDown, 
+  Upload,
+  X
 } from "lucide-react";
 
 import { type Prediction } from "@/types";
@@ -100,6 +102,36 @@ export const getColumns = [
     cell: (info) => info.getValue(),
   }),
 ] as ColumnDef<Prediction>[];
+
+export type ImageOptions = {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  variant: "link" | "default" | "destructive" | "outline" | "secondary" | "ghost" | null | undefined
+  className: string;
+};
+
+export const optionsImage = (
+  handleChangeImageClick: () => void, 
+  handleRemoveImageClick: () => void
+): ImageOptions[] => {
+  return [
+    {
+      label: "Cambiar imagen",
+      icon: <Upload className="h-4 w-4 mr-2" />,
+      onClick: handleChangeImageClick,
+      variant: "outline",
+      className: "flex-1 cursor-pointer",
+    },
+    {
+      label: "Eliminar",
+      icon: <X  className="h-4 w-4 mr-2" />,
+      onClick: handleRemoveImageClick,
+      variant: "destructive",
+      className: "cursor-pointer"
+    }
+  ]
+};
 
 interface PaginationButton {
   onClick: () => void;

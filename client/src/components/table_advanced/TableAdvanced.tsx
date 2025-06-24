@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search, Settings, ChevronDown } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Search, Settings, ChevronDown, Upload, Loader2Icon } from "lucide-react";
 
 import { 
   useReactTable,
@@ -20,6 +20,11 @@ import {
   DropdownMenuContent, DropdownMenuCheckboxItem 
 } from "../ui/dropdown-menu";
 
+import { 
+  Dialog, DialogClose, DialogContent, DialogDescription, 
+  DialogFooter, DialogHeader, DialogTitle, DialogTrigger 
+} from "../ui/dialog";
+
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../ui/select";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -27,7 +32,7 @@ import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from ".
 
 import { cn } from "@/lib/utils";
 import { type Prediction } from "@/types";
-import { columnNames, sizePages, getPaginationButton, getColumns  } from "./Item";
+import { columnNames, sizePages, getPaginationButton, getColumns, optionsImage  } from "./Item";
 
 const datosExample: Prediction[] = [
   {
@@ -167,6 +172,56 @@ function TableAdvanced() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [globalFilter, setGlobalFilter] = useState("");
 
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!image) return;
+
+    const formData = new FormData();
+    formData.append("image", image);
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/prediccion", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [image]);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+
+    setImage(file);
+    setImagePreview(file ? URL.createObjectURL(file) : null);
+  }, [imagePreview]);
+
+  const handleChangeImageClick = useCallback((): void => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    };
+  }, []);
+
+  const handleRemoveImageClick = useCallback((): void => {
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setImage(null);
+    setImagePreview(null);
+  }, []);
+
   const columns = useMemo(() => {
     return getColumns
   }, []);
@@ -197,8 +252,22 @@ function TableAdvanced() {
 
   return (
     <div className="w-full space-y-4">
-      <TableAdvancedHeader />
-      <TableAdvancedFilters globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} table={table} />
+      <TableAdvancedHeader
+        loading={loading}
+        imagePreview={imagePreview}
+        fileInputRef={fileInputRef}
+        handleSubmit={handleSubmit}
+        handleFileChange={handleFileChange}
+        handleChangeImageClick={handleChangeImageClick}
+        handleRemoveImageClick={handleRemoveImageClick}
+      />
+
+      <TableAdvancedFilters 
+        globalFilter={globalFilter} 
+        setGlobalFilter={setGlobalFilter} 
+        table={table} 
+      />
+
       <TableAdvancedBody table={table} columns={columns} />
       <TableAdvancedPagination table={table} />
       <TableAdvancedFooter table={table} data={data} />
@@ -206,15 +275,157 @@ function TableAdvanced() {
   )
 };
 
-function TableAdvancedHeader() {
+interface TableAdvancedHeaderProps {
+  loading: boolean;
+  imagePreview: string | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  handleSubmit: () => void;
+  handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleChangeImageClick: () => void;
+  handleRemoveImageClick: () => void;
+};
+
+function TableAdvancedHeader(props: TableAdvancedHeaderProps) {
+  const { 
+    loading, imagePreview, fileInputRef, 
+    handleSubmit, handleFileChange, handleChangeImageClick, handleRemoveImageClick 
+  } = props;
+
   return (
     <div className="flex items-center justify-between">
       <h2 className="text-2xl font-semibold text-gray-900 dark:text-white/90">
         Predicciones de Objetos
       </h2>
 
-      <Button>Agregar Predicción</Button>
+      <TableAdvancedModal
+        loading={loading}
+        imagePreview={imagePreview}
+        fileInputRef={fileInputRef}
+        handleSubmit={handleSubmit}
+        handleFileChange={handleFileChange}
+        handleChangeImageClick={handleChangeImageClick}
+        handleRemoveImageClick={handleRemoveImageClick}
+      />
     </div>
+  )
+};
+
+type TableAdvancedModalProps = TableAdvancedHeaderProps;
+
+function TableAdvancedModal(props: TableAdvancedModalProps) {
+  const { 
+    loading, imagePreview, fileInputRef, handleSubmit,
+    handleFileChange, handleChangeImageClick, handleRemoveImageClick 
+  } = props;
+
+  const imageActions = optionsImage(handleChangeImageClick, handleRemoveImageClick);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button className="cursor-pointer">
+          Agregar Predicción
+        </Button>
+      </DialogTrigger>
+      <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>IA Convolucional</DialogTitle>
+          <DialogDescription>
+            Favor de escoger la imagen que quiere analizar
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative z-0 w-full">
+          <div 
+            onClick={!imagePreview ? handleChangeImageClick : undefined} 
+            className={cn(
+              "flex flex-col items-center justify-center p-8 text-center",
+              "rounded-md border-muted-foreground/25",
+              !imagePreview ? (
+                `border-dashed border-2 cursor-pointer hover:border-muted-foreground/50
+                transition-colors`
+              ) : ("border gap-4")
+            )}
+          >
+            {!imagePreview ? (
+              <>
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    Arrastra una imagen aquí o haz clic para seleccionar
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    PNG, JPG, WebP o GIF (máx. 5MB)
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full h-64 object-cover rounded-md"
+                />
+
+                <div className="flex gap-2">
+                  {imageActions.map((action, index) => (
+                    <Button
+                      key={index}
+                      variant={action.variant}
+                      size="sm"
+                      onClick={action.onClick}
+                      className={action.className}
+                    >
+                      {action.icon}
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <Input
+              id="image-upload"
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button 
+              className="cursor-pointer" 
+              variant="outline" 
+              onClick={handleRemoveImageClick}
+              disabled={loading}
+            >
+              Cerrar
+            </Button>
+          </DialogClose>
+          <Button 
+            className="cursor-pointer transition" 
+            onClick={handleSubmit} 
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2Icon className="animate-spin" />
+                Cargando...
+              </>
+            ): (
+              "Analizar"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 };
 
