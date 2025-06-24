@@ -55,51 +55,51 @@ export const getColumns = [
   }),
   columnHelper.accessor("bicycle", {
     header: ({ column }) => headerToOrderTable("Bicicleta", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("cabinet", {
     header: ({ column }) => headerToOrderTable("Gabinete", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("chair", {
     header: ({ column }) => headerToOrderTable("Silla", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("coffeMaker", {
     header: ({ column }) => headerToOrderTable("Cafetera", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${`${info.getValue()} %`} %`,
   }),
   columnHelper.accessor("fan", {
     header: ({ column }) => headerToOrderTable("Ventilador", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("kettle", {
     header: ({ column }) => headerToOrderTable("Tetera", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("lamp", {
     header: ({ column }) => headerToOrderTable("Lámpara", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("mug", {
     header: ({ column }) => headerToOrderTable("Taza", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("sofa", {
     header: ({ column }) => headerToOrderTable("Sofá", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("stapler", {
     header: ({ column }) => headerToOrderTable("Grapadora", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("table", {
     header: ({ column }) => headerToOrderTable("Mesa", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
   columnHelper.accessor("toaster", {
     header: ({ column }) => headerToOrderTable("Tostadora", column),
-    cell: (info) => info.getValue(),
+    cell: (info) => `${info.getValue()} %`,
   }),
 ] as ColumnDef<Prediction>[];
 
