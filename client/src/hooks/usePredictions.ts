@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { type Prediction } from "@/types";
 import { generatePredictionId } from "@/utils";
 
@@ -6,6 +7,10 @@ interface usePredictionsProps {
   image: File | null;
   imagePreview: string | null;
   handleIsOpen: (value: boolean) => void;
+};
+
+type PredictionResponse = Omit<Prediction, "coffeMaker" | "id" | "imagen"> & {
+  coffee_maker: number;
 };
 
 const usePredictions = ({ image, imagePreview, handleIsOpen }: usePredictionsProps) => {
@@ -27,7 +32,7 @@ const usePredictions = ({ image, imagePreview, handleIsOpen }: usePredictionsPro
       });
 
       const result = await response.json();
-      const scores: Omit<Prediction, "id"> = result.predicciones;
+      const scores: PredictionResponse = result.predicciones;
       const newId = generatePredictionId(data.length);
 
       const prediction: Prediction = {
@@ -36,7 +41,7 @@ const usePredictions = ({ image, imagePreview, handleIsOpen }: usePredictionsPro
         bicycle: scores.bicycle ?? 0,
         cabinet: scores.cabinet ?? 0,
         chair: scores.chair ?? 0,
-        coffeMaker: scores.coffeMaker ?? 0,
+        coffeMaker: scores.coffee_maker ?? 0,
         fan: scores.fan ?? 0,
         kettle: scores.kettle ?? 0,
         lamp: scores.lamp ?? 0,
@@ -49,8 +54,10 @@ const usePredictions = ({ image, imagePreview, handleIsOpen }: usePredictionsPro
       
       setData((prev) => [...prev, prediction]);
       handleIsOpen(false);
+      toast.success("Prediccion realizada exitosamente");
     } catch (error) {
       console.error(error);
+      toast.error("Error al realizar la predicción");
     } finally {
       setLoading(false);
     }
