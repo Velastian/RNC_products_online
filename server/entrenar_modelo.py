@@ -1,97 +1,184 @@
-# Importamos TensorFlow y sus componentes para construir modelos con Keras
+# Importación de librerías necesarias
+import os
+import json
 import tensorflow as tf
+import matplotlib
+matplotlib.use('TkAgg')  # Configura el backend de matplotlib para entornos con GUI (Tkinter)
+import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-import tensorflow_datasets as tfds  # Importamos el gestor de datasets predefinidos
-import os  # Para manipular rutas del sistema
-import json  # Para guardar las clases en un archivo JSON
+from tensorflow.keras.layers import (
+    Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+)
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-# --- Configuración Mejorada ---
-IMG_SIZE = (128, 128)  # Tamaño al que se redimensionarán las imágenes
-BATCH_SIZE = 32        # Tamaño del batch para entrenamiento
-EPOCHS = 10            # Número de épocas de entrenamiento
+# Definimos la ruta base del usuario para almacenar el dataset
+HOME_DIR = os.path.expanduser("~")  # Ruta del directorio del usuario (ej: /home/usuario o C:\Users\usuario)
+DATASET_DIR = os.path.join(HOME_DIR, "datasets", "Stanford_Online_Products")  # Ruta completa del dataset
 
-# Definimos la ruta absoluta para guardar el dataset y evitar descargas repetidas
-HOME_DIR = os.path.expanduser("~")  # Ruta del directorio del usuario (por ejemplo, /home/usuario)
-DATA_DIR = os.path.join(HOME_DIR, "tensorflow_datasets", "stanford_online_products")
-os.makedirs(DATA_DIR, exist_ok=True)  # Creamos el directorio si no existe
+# Paso 1: Cargar los datos desde los archivos .txt que describen las imágenes
+def load_data(file_path):
+    data = []
+    with open(file_path, 'r') as f:
+        f.readline()  # Ignorar la primera línea (encabezado)
+        for line in f:
+            parts = line.strip().split()  # Separar los campos por espacios
+            image_id, class_id, super_class_id, path = parts
+            # Guardar los datos como diccionario
+            data.append({
+                'image_id': int(image_id),
+                'class_id': int(class_id),
+                'super_class_id': int(super_class_id),
+                'path': path
+            })
+    return data
 
-print(f"🔄 Descargando y cargando el dataset (si es necesario) desde: {DATA_DIR}")
+# Construir rutas absolutas a los archivos de entrenamiento y prueba
+train_file_path = os.path.join(DATASET_DIR, "Ebay_train.txt")
+test_file_path = os.path.join(DATASET_DIR, "Ebay_test.txt")
 
-# Cargamos el dataset Stanford Online Products con TensorFlow Datasets
-# split=['train', 'test']: Carga los conjuntos de entrenamiento y prueba
-# as_supervised=None: Nos devuelve un diccionario con claves en lugar de tuplas
-# with_info=True: Nos devuelve información adicional como el número de clases
-# data_dir=DATA_DIR: Usamos una ruta explícita para almacenamiento local
-(train_ds, test_ds), ds_info = tfds.load(
-    'stanford_online_products',
-    split=['train', 'test'],
-    as_supervised=None,
-    with_info=True,
-    data_dir=DATA_DIR
+# Cargar los datos desde los archivos
+train_data = load_data(train_file_path)
+test_data = load_data(test_file_path)
+
+# Extraer rutas de imagen y etiquetas (superclases, ajustadas para que comiencen en 0)
+X_train = [entry['path'] for entry in train_data]
+y_train = [entry['super_class_id'] - 1 for entry in train_data]
+
+X_test = [entry['path'] for entry in test_data]
+y_test = [entry['super_class_id'] - 1 for entry in test_data]
+
+# Paso 2: Definir generadores de datos para preprocesamiento y aumento
+
+# Generador de datos para entrenamiento con aumentos y validación dividida
+train_datagen = ImageDataGenerator(
+    rescale=1./255,           # Escalar píxeles entre 0 y 1
+    shear_range=0.2,          # Aplicar transformación de corte (shear)
+    zoom_range=0.2,           # Aplicar zoom aleatorio
+    horizontal_flip=True,     # Volteo horizontal aleatorio
+    validation_split=0.2      # Reservar 20% de datos para validación
 )
 
-# Extraemos el número total de clases del dataset
-NUM_CLASSES = ds_info.features['super_class_id'].num_classes
-print(f"✅ Dataset cargado. Total clases: {NUM_CLASSES}")
+# Generador de datos para prueba (solo normalización)
+test_datagen = ImageDataGenerator(rescale=1./255)
 
-# Función para preprocesar los datos (imagen + etiqueta)
-def preprocess(features):
-    image = features['image']  # Extraemos la imagen
-    label = features['super_class_id']  # Extraemos la etiqueta (categoría)
-    image = tf.image.resize(image, IMG_SIZE)  # Redimensionamos la imagen
-    image = tf.cast(image, tf.float32) / 255.0  # Normalizamos la imagen a [0,1]
-    return image, tf.one_hot(label, NUM_CLASSES)  # One-hot encoding de la etiqueta
+# Definir tamaño de lote e imágenes
+batch_size = 32
+target_size = (224, 224)  # Tamaño estándar de entrada de imagen
 
-# Aplicamos el preprocesamiento y optimizaciones a los datasets
-train_ds = (
-    train_ds
-    .map(preprocess)              # Aplicamos la función preprocess
-    .shuffle(1000)                # Mezclamos los datos para evitar patrones en el entrenamiento
-    .batch(BATCH_SIZE)            # Agrupamos en batches
-    .prefetch(tf.data.AUTOTUNE)  # Precargamos batches para mejor rendimiento
+# Generador para entrenamiento
+train_generator = train_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],  # Lista de subdirectorios con nombres específicos de clases
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse',  # Etiquetas como enteros
+    subset='training'     # Solo parte de entrenamiento
 )
 
-test_ds = (
-    test_ds
-    .map(preprocess)              # Preprocesamos los datos de prueba
-    .batch(BATCH_SIZE)            # No hace falta mezclar, solo agrupar
-    .prefetch(tf.data.AUTOTUNE)  # Precarga para eficiencia
+# Generador para validación
+validation_generator = train_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse',
+    subset='validation'
 )
 
-# Definimos la arquitectura del modelo CNN
+# Generador para pruebas (sin subset porque no hay separación en prueba)
+test_generator = test_datagen.flow_from_directory(
+    directory=DATASET_DIR,
+    classes=[f"{i}_final" for i in [
+        "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+        "lamp", "mug", "sofa", "stapler", "table", "toaster"
+    ]],
+    target_size=target_size,
+    batch_size=batch_size,
+    class_mode='sparse'
+)
+
+# Paso 3: Construcción del modelo CNN (Convolutional Neural Network)
+input_shape = (*target_size, 3)  # Agrega canal de color RGB
+num_classes = 12  # Cantidad de clases (una por supercategoría)
+
+# Definición del modelo secuencial
 model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(*IMG_SIZE, 3)),  # Capa convolucional inicial
-    MaxPooling2D(),                                                    # Pooling para reducción espacial
-    Conv2D(64, (3, 3), activation='relu'),                             # Segunda capa convolucional
-    MaxPooling2D(),                                                    # Segundo pooling
-    Flatten(),                                                         # Aplanamos para pasar a capa densa
-    Dense(256, activation='relu'),                                     # Capa totalmente conectada
-    Dropout(0.5),                                                      # Dropout para evitar sobreajuste
-    Dense(NUM_CLASSES, activation='softmax')                           # Capa de salida con softmax
+    Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),  # Capa convolucional 1
+    MaxPooling2D((2, 2)),  # Reducción de dimensiones
+    Conv2D(64, (3, 3), activation='relu'),  # Capa convolucional 2
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),  # Capa convolucional 3
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),  # Capa convolucional 4
+    MaxPooling2D((2, 2)),
+    Flatten(),  # Aplanamiento para entrada a capa densa
+    Dense(256, activation='relu'),  # Capa densa totalmente conectada
+    Dropout(0.5),  # Regularización para evitar overfitting
+    Dense(num_classes, activation='softmax')  # Capa de salida con softmax
 ])
 
-# Compilamos el modelo con optimizador, función de pérdida y métrica
-model.compile(
-    optimizer='adam',                        # Optimizador Adam
-    loss='categorical_crossentropy',         # Pérdida para clasificación multiclase
-    metrics=['accuracy']                     # Métrica a evaluar: precisión
+# Compilación del modelo con optimizador, función de pérdida y métrica
+model.compile('adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Paso 4: Entrenamiento del modelo
+epochs = 18  # Número de épocas (puede ajustarse según recursos)
+
+history = model.fit(
+    train_generator,
+    steps_per_epoch=len(X_train) // batch_size,  # Cantidad de pasos por época
+    epochs=epochs,
+    validation_data=validation_generator,
+    validation_steps=len(X_train) * 0.2 // batch_size  # Aproximación a pasos de validación
 )
 
-print("🚀 Entrenando modelo...")
+# Paso 5: Evaluación del modelo en conjunto de prueba
+test_loss, test_accuracy = model.evaluate(test_generator, steps=len(X_test) // batch_size)
+print(f"Pérdida en el conjunto de prueba: {test_loss}")
+print(f"Precisión en el conjunto de prueba: {test_accuracy}")
 
-# Entrenamos el modelo con los datos de entrenamiento y validamos con los datos de prueba
-model.fit(train_ds, epochs=EPOCHS, validation_data=test_ds)
-
-# Creamos la carpeta de salida si no existe
+# Guardar el modelo entrenado en formato HDF5 (.h5)
 os.makedirs("modelo", exist_ok=True)
-
-# Guardamos el modelo entrenado en formato HDF5 (.h5)
 model.save("modelo/modelo_productos.h5")
 
-# Guardamos los nombres de las clases en formato JSON para poder usarlos luego (por ejemplo, en inferencias)
+# Lista de nombres de clase en orden (coincidente con `flow_from_directory`)
+class_names = [
+    "bicycle", "cabinet", "chair", "coffee_maker", "fan", "kettle",
+    "lamp", "mug", "sofa", "stapler", "table", "toaster"
+]
+
+# Guardar los nombres de clases como archivo JSON
 with open("modelo/class_names.json", "w") as f:
-    class_names = ds_info.features['super_class_id'].names
     json.dump(class_names, f)
 
 print("✅ Modelo y clases guardados en carpeta /modelo/")
+
+# Visualización de métricas de entrenamiento y validación
+plt.figure(figsize=(12, 4))
+
+# Gráfico de pérdida
+plt.subplot(1, 2, 1)
+plt.plot(history.history['loss'], label='Pérdida en entrenamiento')
+plt.plot(history.history['val_loss'], label='Pérdida en validación')
+plt.title('Pérdida')
+plt.xlabel('Época')
+plt.ylabel('Valor de pérdida')
+plt.legend()
+
+# Gráfico de precisión
+plt.subplot(1, 2, 2)
+plt.plot(history.history['accuracy'], label='Precisión en entrenamiento')
+plt.plot(history.history['val_accuracy'], label='Precisión en validación')
+plt.title('Precisión')
+plt.xlabel('Época')
+plt.ylabel('Valor de precisión')
+plt.legend()
+
+plt.show()

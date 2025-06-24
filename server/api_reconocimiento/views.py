@@ -8,8 +8,9 @@ import os
 import io # Import the io module
 
 # Definir la ruta del modelo (.h5) y del archivo de nombres de clases (.json)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'modelo', 'modelo_productos.h5')
-CLASSES_PATH = os.path.join(os.path.dirname(__file__), '..', 'modelo', 'class_names.json')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, '..', 'modelo', 'modelo_productos.h5')
+CLASSES_PATH = os.path.join(BASE_DIR, '..', 'modelo', 'class_names.json')
 
 # Cargar el modelo y las clases una sola vez al inicio de la aplicación para evitar recargas innecesarias
 try:
@@ -47,7 +48,7 @@ def reconocer_producto(request):
         img_bytes = io.BytesIO(img_file.read())
 
         # Cargar la imagen en memoria, redimensionada al tamaño esperado por el modelo
-        img = image.load_img(img_bytes, target_size=(128, 128))
+        img = image.load_img(img_bytes, target_size=(224, 224))
 
         # Convertir la imagen a un arreglo NumPy y normalizar los valores entre 0 y 1
         img_array = image.img_to_array(img) / 255.0
